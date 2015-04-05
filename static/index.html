@@ -9,9 +9,57 @@
         <script data-main="js/sfmovies_app" src="js/lib/require.js"></script>
     </head>
     <body>
-        <h1>San Francisco Film Locations</h1>
-        <div id="error-placeholder"></div>
-        <input type="text" class="sf-autocomplete" id="autocomplete"/>
+        <div class="shadow-box">
+            <div id="error-placeholder"></div>
+            <ul class="list-unstyled center">
+                <li><h3>Film Locations in San Francisco</h3></li>
+                <li><input type="text" class="form-control film-autocomplete" id="autocomplete" placeholder="E.x.: Clint Eastwood, Terminator, 2014"/></li>
+            </ul>
+        </div>
         <div id="map-canvas"></div>
+
     </body>
+    <script type="text/template" id="film_marker_template">
+        <div id="content">
+            <div id="siteNotice"></div>
+            <h5 id="firstHeading" class="firstHeading"><%= title %> (<%= release_year %>)</h5>
+            <div id="bodyContent">
+
+                <ul class="list-unstyled">
+                    <li>
+                        <ul class="list-inline">
+                            <li><h6 class="caption">Director: </h6></li>
+                            <li class="field small"><%= director %></li>
+                        </ul>
+                    </li>
+                    <li>
+                        <ul class="list-inline">
+                            <li><h6 class="caption">Writer: </h6></li>
+                            <li class="field small"><%= writer %></li>
+                        </ul>
+                    </li>
+                    <li>
+                        <ul class="list-inline">
+                            <li><h6 class="caption">Star: </h6></li>
+                            <li class="field small"><%= actor_1 %> <%= actor_2 %> <%= actor_3 %></li>
+                        </ul>
+                    </li>
+                    <li>
+                        <ul class="list-inline">
+                            <li><h6 class="caption">Production: </h6></li>
+                            <li class="field small"><%= production_company %></li>
+                        </ul>
+                    </li>
+                    <li>
+                        <ul class="list-inline">
+                            <li><h6 class="caption">Location: </h6></li>
+                            <li class="field small"><%= locations %></li>
+                        </ul>
+                    </li>
+                </ul>
+            <div>
+        </div>
+    </script>
 </html>
+
+

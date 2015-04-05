@@ -28,7 +28,6 @@ class FilmLocation(object):
         self._data_fetcher = data_fetcher
         self._coordinates_fetcher = coordinates_fetcher
         self._count = count
-
         assert redis_db
 
     def update_data(self):
