@@ -50,7 +50,7 @@ def get_search_result(query):
     ids = [film["id"] for film in result]
     redis_db.hset(SEARCH_CACHE_NAMESPACE, query, json.dumps(ids))
     # set expiration
-    redis_db.expire(MOST_POPULAR_NAMESPACE, DEFAULT_CACHE_EXPIRATION)
+    redis_db.expire(SEARCH_CACHE_NAMESPACE, DEFAULT_CACHE_EXPIRATION)
     return make_response(json.dumps(result), 200)
 
 
