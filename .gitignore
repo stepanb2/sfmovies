@@ -1,2 +1,6 @@
 *.pyc
-
+test.py
+.DS_Store
+/build/
+/dist/
+/PyFilmLocation.egg-info/
