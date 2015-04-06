@@ -4,6 +4,24 @@ define(["jquery", "underscore", "backbone", "jqueryui"], function($, _, Backbone
 
 
     var FilmLocation = Backbone.Model.extend({
+        /*
+            Sample json object used to init FilmLocation:
+            {  
+               "release_year":"1988",
+               "title":"The Dead Pool",
+               "writer":"Harry Julian Fink",
+               "actor_1":"Clint Eastwood",
+               "locations":"Hall of Justice (850 Bryant Street)",
+               "actor_2":"Liam Neeson",
+               "actor_3":"",
+               "director":"Buddy Van Horn",
+               "distributor":"Warner Bros. Pictures",
+               "production_company":"Warner Bros. Pictures",
+               "lat":37.775471,
+               "lng":-122.4037169,
+               "id":"6982b8fdb56fbe28fc1ebb9899131c37"
+            }
+        */
         initialize: function(){
             var myLatlng = new google.maps.LatLng(this.get("lat"), this.get("lng"));
             var marker = new google.maps.Marker({
@@ -15,15 +33,6 @@ define(["jquery", "underscore", "backbone", "jqueryui"], function($, _, Backbone
                 maxWidth: 300
             });
             this.set("infoWindow", infoWindow);
-
-            // Ensures that nulls are not passed
-            var fields = [
-                "actor_1", "actor_2", "actor_3",
-                "production_company", "director", "writer"
-            ];
-            _.each(fields, function(field) {
-                if (!this.get(field)) this.set(field, "");
-            }.bind(this));   
         }
     });
 
@@ -39,7 +48,6 @@ define(["jquery", "underscore", "backbone", "jqueryui"], function($, _, Backbone
             var content = this.template(this.model.toJSON());
             var map = parent.map;
             var marker = this.model.get("marker");
-            var entity_id = this.model.get("id");
             var infoWindow = this.model.get("infoWindow");
             infoWindow.setContent(content);
 
@@ -48,8 +56,8 @@ define(["jquery", "underscore", "backbone", "jqueryui"], function($, _, Backbone
             
             // register click event
             google.maps.event.addListener(marker, 'click', function() {
-                // hide all open info windows and increase rank of the film
-                parent.clickInfoHandler(entity_id);
+                // hide all open info windows
+                parent.clickInfoHandler();
                 // show detailed info
                 infoWindow.open(map, marker);
             });
@@ -67,15 +75,23 @@ define(["jquery", "underscore", "backbone", "jqueryui"], function($, _, Backbone
     var App = function() {};
 
     App.prototype.init = function() {
+        // Defines how many suggestions will shown in the auto complete
+        this.rowsPerAutocomplete = 6;
+        // Defines list of fields that are visible in the autocomplete
+        this.autocompleteShownColumns = ["title", "actor_1", "director", "locations"];
+
         this.dataCollection = new FilmLocationCollection();
-        this.createMap();
-        // Init map with the most popular films
-        this.loadFilmLocations("/api/locations/most_popular");
+        // Create map and center it to the center of the SF
+        this.createMap(37.777, -122.444);
+        // Load film locations
+        this.loadFilmLocations("/api/locations/explore");
     }
 
-    App.prototype.createMap = function() {
+    App.prototype.createMap = function(lat, lng) {
       var mapOptions = {
-        center: new google.maps.LatLng(37.777, -122.444),
+        // Center to the San Francisco
+        center: new google.maps.LatLng(lat, lng),
+        // fixme: change the map zoom based on the markers coordinates
         zoom: 12,
       }
       // Instantiate map
@@ -92,16 +108,17 @@ define(["jquery", "underscore", "backbone", "jqueryui"], function($, _, Backbone
 
     App.prototype.updateData = function(films) {
         this.cleanData();
+        var self = this;
         _.each(films, function(film) {
             // Create Model
             var filmLocation = new FilmLocation(film);
             // Add to Collection
-            this.dataCollection.add(filmLocation);
+            self.dataCollection.add(filmLocation);
             // Create View
             var view = new FilmLocationView({
                 model: filmLocation,
-            }, this);
-        }.bind(this));
+            }, self);
+        });
     }
 
     App.prototype.clickInfoHandler = function(film_id) {
@@ -109,33 +126,25 @@ define(["jquery", "underscore", "backbone", "jqueryui"], function($, _, Backbone
             // hide detailed info for an open marker
             filmModel.get("infoWindow").close();
         });
-        // increase rank of the clicked film
-        this.increaseRank(film_id);
     }
 
     App.prototype.loadFilmLocations = function(url) {
-        $.ajax(url)
-        .done(function(data_json) {
-            var films = $.parseJSON(data_json);
-            this.updateData(films);
-        }.bind(this))
-        .fail(function() {
-            this.handleFail("Failed to load films.");
-        }.bind(this));
+        var self = this;
+        $.getJSON(url).done(function(data) {
+            self.updateData(data);
+        }).fail(function() {
+            self.handleFail("Failed to load films.");
+        });
     }
 
     App.prototype.handleFail = function(message) {
+        // fixme: show the error in the modal window instead
         alert(message);
     }
 
-    App.prototype.increaseRank = function(film_id) {
-        console.log(film_id);
-    }
-
-    App.prototype.loadSearch = function(query) {
-        var encoded_q = encodeURIComponent(query);
-        // load search result
-        this.loadFilmLocations("/api/locations/search/" + encoded_q);
+    App.prototype.formatFilm = function(film) {
+        // fixme: highlight the actual matched parts
+        return _.map(this.autocompleteShownColumns, function(name){ return film[name]}).join(', ');
     }
 
     $(function() {
@@ -144,36 +153,28 @@ define(["jquery", "underscore", "backbone", "jqueryui"], function($, _, Backbone
             app.init();
             $( "#autocomplete" ).autocomplete({
                 source: function( request, response ) {
-                $.ajax("/api/locations/search/" + encodeURIComponent(request.term))
-                    .done(function(data_json) {
-                        var films = $.parseJSON(data_json);
+                    $.getJSON("/api/locations/search/", {q: request.term} ).done(function(films) {
                         // update map with the new films
                         app.updateData(films);
-                        // show only to 6 suggestions in the autocomplete
-                        items = [];
-                        for (var i=0; i<Math.min(films.length, 6); i++) {
-                            var item = {
-                                label: films[i].title + '(' + films[i].release_year + '), ' + films[i].actor_1 + ', ' + films[i].director,
-                                value: films[i]
-                            }
-                            items.push(item);
-                        }
+                        // show only to limited number of suggestions in the autocomplete
+                        items = _.map(_.take(films, app.rowsPerAutocomplete), function(film) {
+                            return { label: app.formatFilm(film), value: film }
+                        });
                         response(items);
-                    }.bind(this))
-                    .fail(function() {
+                    }).fail(function() {
                         app.handleFail("Failed to load films.");
-                    }.bind(this));
-                }.bind(this),
+                    });
+                },
                 minLength: 2,
                 focus: function() {
                     // prevent value inserted on focus
                     return false;
                 },
-                select: function( event, ui ) {
+                select: function(event, ui) {
                     event.preventDefault();
                     $("#autocomplete").val(ui.item.label);
                     app.updateData([ui.item.value]);
-                }.bind(this)
+                }
             });
         });
     });
